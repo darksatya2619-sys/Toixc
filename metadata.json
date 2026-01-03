@@ -1,0 +1,7 @@
+{
+  "name": "Shubham ",
+  "description": "A dark, edgy, AI-powered music streaming experience with a sarcastic twist. Discover music, chat with the Toxic AI critic, and manage your vibe.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
