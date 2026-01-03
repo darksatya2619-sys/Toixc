@@ -8,6 +8,15 @@ export interface Song {
   duration: string;
   audioUrl: string;
   genre: string;
+  language?: 'Hindi' | 'Bhojpuri' | 'English';
+}
+
+export interface User {
+  id: string;
+  username: string;
+  avatarUrl: string;
+  likedSongIds: string[];
+  playlists: Playlist[];
 }
 
 export interface Playlist {
@@ -22,8 +31,9 @@ export enum ViewType {
   HOME = 'HOME',
   SEARCH = 'SEARCH',
   LIBRARY = 'LIBRARY',
-  PLAYLIST = 'PLAYLIST',
-  AI_CHAT = 'AI_CHAT'
+  PLAYLIST_DETAIL = 'PLAYLIST_DETAIL',
+  AI_CHAT = 'AI_CHAT',
+  PROFILE = 'PROFILE'
 }
 
 export interface ChatMessage {

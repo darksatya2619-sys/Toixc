@@ -18,8 +18,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
 
   return (
     <aside className="w-64 bg-zinc-950 border-r border-zinc-800 hidden md:flex flex-col p-4 h-full">
-      <div className="flex items-center gap-2 mb-8 px-2">
-        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center font-bold text-black rotate-12">T</div>
+      <div className="flex items-center gap-3 mb-8 px-2">
+        <div className="relative group cursor-pointer">
+          <div className="absolute inset-0 bg-emerald-500 rounded-full blur-sm opacity-50 group-hover:opacity-100 transition-opacity"></div>
+          <div className="w-10 h-10 rounded-full border-2 border-emerald-500 overflow-hidden relative z-10 rotate-3 group-hover:rotate-0 transition-transform">
+            <img 
+              src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=200&h=200&auto=format&fit=crop" 
+              alt="Shubham" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
         <h1 className="text-2xl font-black tracking-tighter text-emerald-500 italic">TOXICFY</h1>
       </div>
 

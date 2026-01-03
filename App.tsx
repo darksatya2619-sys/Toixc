@@ -1,13 +1,16 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Player from './components/Player';
 import AIChat from './components/AIChat';
-import { ViewType, Song } from './types';
+import Library from './components/Library';
+import AuthModal from './components/AuthModal';
+import { ViewType, Song, User, Playlist } from './types';
 import { MOCK_SONGS, MOCK_PLAYLISTS } from './constants';
 import { 
-  Search, Bell, User, Play, Clock, MoreHorizontal, Heart, 
-  Sparkles, SkipBack, SkipForward, Home, Library, MessageSquareText 
+  Search, Bell, User as UserIcon, Play, Clock, MoreHorizontal, Heart, 
+  Sparkles, SkipBack, SkipForward, Home, Library as LibraryIcon, MessageSquareText,
+  Globe, Languages, Star, Flame
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -15,11 +18,19 @@ const App: React.FC = () => {
   const [currentSong, setCurrentSong] = useState<Song | null>(MOCK_SONGS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Auth & Profile State
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const filteredSongs = useMemo(() => {
+    if (!searchQuery) return [];
+    const query = searchQuery.toLowerCase();
     return MOCK_SONGS.filter(s => 
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      s.artist.toLowerCase().includes(searchQuery.toLowerCase())
+      s.title.toLowerCase().includes(query) || 
+      s.artist.toLowerCase().includes(query) ||
+      s.genre.toLowerCase().includes(query) ||
+      s.language?.toLowerCase().includes(query)
     );
   }, [searchQuery]);
 
@@ -32,24 +43,81 @@ const App: React.FC = () => {
     setIsPlaying(true);
   }, []);
 
+  // Added playNext and playPrevious functions to handle player navigation
   const playNext = useCallback(() => {
     if (!currentSong) return;
-    const idx = MOCK_SONGS.findIndex(s => s.id === currentSong.id);
-    const nextIdx = (idx + 1) % MOCK_SONGS.length;
-    setCurrentSong(MOCK_SONGS[nextIdx]);
+    const currentIndex = MOCK_SONGS.findIndex(s => s.id === currentSong.id);
+    const nextIndex = (currentIndex + 1) % MOCK_SONGS.length;
+    setCurrentSong(MOCK_SONGS[nextIndex]);
+    setIsPlaying(true);
   }, [currentSong]);
 
   const playPrevious = useCallback(() => {
     if (!currentSong) return;
-    const idx = MOCK_SONGS.findIndex(s => s.id === currentSong.id);
-    const prevIdx = (idx - 1 + MOCK_SONGS.length) % MOCK_SONGS.length;
-    setCurrentSong(MOCK_SONGS[prevIdx]);
+    const currentIndex = MOCK_SONGS.findIndex(s => s.id === currentSong.id);
+    const prevIndex = (currentIndex - 1 + MOCK_SONGS.length) % MOCK_SONGS.length;
+    setCurrentSong(MOCK_SONGS[prevIndex]);
+    setIsPlaying(true);
   }, [currentSong]);
+
+  const toggleLike = useCallback((songId: string) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setUser(prev => {
+      if (!prev) return null;
+      const alreadyLiked = prev.likedSongIds.includes(songId);
+      return {
+        ...prev,
+        likedSongIds: alreadyLiked 
+          ? prev.likedSongIds.filter(id => id !== songId)
+          : [...prev.likedSongIds, songId]
+      };
+    });
+  }, [user]);
+
+  const handleAuth = (username: string) => {
+    setUser({
+      id: Math.random().toString(36).substr(2, 9),
+      username,
+      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+      likedSongIds: [],
+      playlists: [...MOCK_PLAYLISTS]
+    });
+  };
+
+  const createPlaylist = () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    const name = prompt("Enter playlist name:");
+    if (name) {
+      const newPlaylist: Playlist = {
+        id: Math.random().toString(36).substr(2, 9),
+        name,
+        description: "A toxic collection.",
+        coverUrl: `https://picsum.photos/seed/${name}/400/400`,
+        songs: []
+      };
+      setUser(prev => prev ? { ...prev, playlists: [...prev.playlists, newPlaylist] } : null);
+    }
+  };
 
   const renderContent = () => {
     switch (currentView) {
       case ViewType.AI_CHAT:
         return <AIChat />;
+      case ViewType.LIBRARY:
+        return (
+          <Library 
+            likedSongIds={user?.likedSongIds || []} 
+            playlists={user?.playlists || []}
+            onPlaySong={playSong}
+            onCreatePlaylist={createPlaylist}
+          />
+        );
       case ViewType.SEARCH:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -58,16 +126,19 @@ const App: React.FC = () => {
                 <input 
                     autoFocus
                     type="text" 
-                    placeholder="Search for toxic tunes..."
+                    placeholder="Search Hindi, Bhojpuri, or Toxic Hits..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-zinc-900/50 border border-zinc-800 py-4 pl-14 pr-4 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg transition-all"
                 />
             </div>
             
-            {searchQuery && (
+            {searchQuery ? (
                 <div className="space-y-4">
-                    <h3 className="text-xl font-bold">Search results</h3>
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Star className="text-emerald-500" size={20} />
+                        Found for "{searchQuery}"
+                    </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                         {filteredSongs.map(song => (
                             <div key={song.id} className="bg-zinc-900/40 p-4 rounded-xl hover:bg-zinc-800/60 transition-all group cursor-pointer" onClick={() => playSong(song)}>
@@ -80,19 +151,64 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                                 <h4 className="font-bold truncate">{song.title}</h4>
-                                <p className="text-sm text-zinc-500 truncate">{song.artist}</p>
+                                <p className="text-sm text-zinc-500 truncate italic">{song.artist}</p>
+                                <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full mt-2 inline-block font-bold">
+                                    {song.language}
+                                </span>
                             </div>
                         ))}
                     </div>
                 </div>
+            ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {[
+                      { name: 'Bhojpuri Beats', icon: Languages, color: 'from-orange-500/20' },
+                      { name: 'Hindi Romance', icon: Heart, color: 'from-red-500/20' },
+                      { name: 'Global Hits', icon: Globe, color: 'from-blue-500/20' },
+                      { name: 'Trending Now', icon: Flame, color: 'from-emerald-500/20' }
+                    ].map(category => (
+                        <div 
+                          key={category.name} 
+                          onClick={() => setSearchQuery(category.name.split(' ')[0])}
+                          className={`h-40 rounded-3xl bg-gradient-to-br ${category.color} to-zinc-900/40 p-6 flex flex-col justify-between hover:scale-[1.02] transition-transform cursor-pointer border border-zinc-800 hover:border-zinc-700 group`}
+                        >
+                            <category.icon className="text-zinc-500 group-hover:text-white transition-colors" size={32} />
+                            <span className="text-xl font-black italic tracking-tight">{category.name}</span>
+                        </div>
+                    ))}
+                </div>
             )}
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {['Hyperpop', 'Glitch', 'Industrial', 'Doom Metal', 'Vaporwave', 'Phonk'].map(genre => (
-                    <div key={genre} className="h-32 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-950 p-4 flex flex-col justify-between hover:scale-[1.02] transition-transform cursor-pointer border border-zinc-800">
-                        <span className="text-lg font-black italic tracking-tight">{genre}</span>
-                        <div className="flex justify-end opacity-20"><Search size={40} /></div>
-                    </div>
+          </div>
+        );
+      case ViewType.PROFILE:
+        return (
+          <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col items-center text-center space-y-4">
+               <div className="w-40 h-40 rounded-full border-4 border-emerald-500 p-1 shadow-2xl shadow-emerald-500/20 overflow-hidden">
+                  <img src={user?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'} className="w-full h-full rounded-full bg-zinc-800" />
+               </div>
+               <div>
+                  <h2 className="text-5xl font-black italic tracking-tighter text-white uppercase">{user?.username || 'GUEST USER'}</h2>
+                  <p className="text-emerald-500 font-bold tracking-widest uppercase text-sm mt-2">Toxic Member Since 2024</p>
+               </div>
+               <button 
+                  onClick={() => user ? setUser(null) : setIsAuthModalOpen(true)}
+                  className="bg-zinc-800 hover:bg-zinc-700 text-white px-8 py-2 rounded-full font-bold transition-all"
+               >
+                  {user ? 'SIGN OUT' : 'SIGN IN'}
+               </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6">
+                {[
+                  { label: 'Liked Songs', count: user?.likedSongIds.length || 0 },
+                  { label: 'Playlists', count: user?.playlists.length || 0 },
+                  { label: 'Toxic Score', count: '99' }
+                ].map(stat => (
+                  <div key={stat.label} className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 text-center">
+                    <div className="text-3xl font-black italic text-emerald-500">{stat.count}</div>
+                    <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">{stat.label}</div>
+                  </div>
                 ))}
             </div>
           </div>
@@ -104,13 +220,13 @@ const App: React.FC = () => {
             <section>
               <div className="flex items-end justify-between mb-6">
                 <div>
-                  <h2 className="text-4xl font-black italic tracking-tighter text-white mb-2 uppercase">Corrosive Hits</h2>
-                  <p className="text-zinc-500 font-medium">Top trending tracks that'll dissolve your speakers.</p>
+                  <h2 className="text-4xl font-black italic tracking-tighter text-white mb-2 uppercase">Toxic Hits</h2>
+                  <p className="text-zinc-500 font-medium">Top trending tracks globally, in Hindi & Bhojpuri.</p>
                 </div>
                 <button className="text-emerald-500 font-bold hover:underline text-sm uppercase tracking-widest">See All</button>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {MOCK_SONGS.map(song => (
+                {MOCK_SONGS.slice(0, 6).map(song => (
                   <div 
                     key={song.id} 
                     onClick={() => playSong(song)}
@@ -133,7 +249,7 @@ const App: React.FC = () => {
             </section>
 
             <section>
-               <h2 className="text-3xl font-black italic tracking-tighter text-white mb-6 uppercase">For Your Meltdown</h2>
+               <h2 className="text-3xl font-black italic tracking-tighter text-white mb-6 uppercase">For Your Desi Meltdown</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {MOCK_PLAYLISTS.map(playlist => (
                     <div key={playlist.id} className="flex gap-6 p-6 bg-zinc-900/40 rounded-3xl border border-zinc-800 hover:bg-zinc-800/60 transition-all group cursor-pointer">
@@ -147,8 +263,8 @@ const App: React.FC = () => {
                         <h3 className="text-2xl font-bold mb-2">{playlist.name}</h3>
                         <p className="text-zinc-500 text-sm mb-4 line-clamp-2">{playlist.description}</p>
                         <div className="flex items-center gap-4 text-zinc-400">
-                          <button className="hover:text-emerald-500 transition-colors"><Heart size={20} /></button>
-                          <button className="hover:text-emerald-500 transition-colors"><MoreHorizontal size={20} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); }} className="hover:text-emerald-500 transition-colors"><Heart size={20} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); }} className="hover:text-emerald-500 transition-colors"><MoreHorizontal size={20} /></button>
                           <span className="text-xs font-mono uppercase ml-auto">{playlist.songs.length} Tracks</span>
                         </div>
                       </div>
@@ -156,31 +272,12 @@ const App: React.FC = () => {
                   ))}
                </div>
             </section>
-
-            <section className="bg-emerald-500/5 border border-emerald-500/20 p-8 rounded-3xl relative overflow-hidden">
-                <div className="absolute -right-20 -top-20 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full" />
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                    <div className="max-w-xl">
-                        <span className="text-emerald-500 text-xs font-bold uppercase tracking-[0.3em] mb-4 block">Experimental Feature</span>
-                        <h2 className="text-4xl font-black italic tracking-tighter mb-4">WANT AN ACTUAL RECOMMENDATION?</h2>
-                        <p className="text-zinc-400 font-medium mb-6">Our AI doesn't care about your feelings, but it knows what's good. Get a tailored, judgmental recommendation right now.</p>
-                        <button 
-                            onClick={() => setView(ViewType.AI_CHAT)}
-                            className="bg-emerald-500 text-black px-8 py-3 rounded-xl font-bold hover:bg-emerald-400 transition-all flex items-center gap-2 group"
-                        >
-                            TALK TO TOXIC AI
-                            <Play size={14} fill="black" className="group-hover:translate-x-1 transition-transform" />
-                        </button>
-                    </div>
-                    <div className="w-48 h-48 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-pulse">
-                        <Sparkles size={80} fill="black" />
-                    </div>
-                </div>
-            </section>
           </div>
         );
     }
   };
+
+  const isLiked = currentSong ? user?.likedSongIds.includes(currentSong.id) : false;
 
   return (
     <div className="flex h-screen overflow-hidden bg-black text-white">
@@ -203,9 +300,24 @@ const App: React.FC = () => {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-black"></span>
             </button>
-            <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 overflow-hidden cursor-pointer hover:border-emerald-500 transition-all">
-              <img src="https://picsum.photos/seed/user/100/100" alt="Avatar" />
+            <div 
+              onClick={() => setView(ViewType.PROFILE)}
+              className={`w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 overflow-hidden cursor-pointer hover:border-emerald-500 transition-all ${currentView === ViewType.PROFILE ? 'border-emerald-500 ring-2 ring-emerald-500/20' : ''}`}
+            >
+              {user ? (
+                <img src={user.avatarUrl} alt={user.username} />
+              ) : (
+                <UserIcon size={20} className="text-zinc-500" />
+              )}
             </div>
+            {!user && (
+              <button 
+                onClick={() => setIsAuthModalOpen(true)}
+                className="bg-emerald-500 text-black px-4 py-1.5 rounded-full font-bold text-sm hover:bg-emerald-400 transition-all"
+              >
+                SIGN IN
+              </button>
+            )}
           </div>
         </header>
 
@@ -222,12 +334,19 @@ const App: React.FC = () => {
         playPrevious={playPrevious}
       />
 
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onAuth={handleAuth} 
+      />
+
       {/* Mobile Nav Overlay (simplified) */}
-      <div className="md:hidden fixed bottom-24 left-4 right-4 bg-zinc-900/90 backdrop-blur-lg rounded-2xl p-2 flex justify-around border border-zinc-800 z-50">
-        <button onClick={() => setView(ViewType.HOME)} className={`p-3 rounded-xl ${currentView === ViewType.HOME ? 'text-emerald-500' : 'text-zinc-500'}`}><Home size={24} /></button>
-        <button onClick={() => setView(ViewType.SEARCH)} className={`p-3 rounded-xl ${currentView === ViewType.SEARCH ? 'text-emerald-500' : 'text-zinc-500'}`}><Search size={24} /></button>
-        <button onClick={() => setView(ViewType.LIBRARY)} className={`p-3 rounded-xl ${currentView === ViewType.LIBRARY ? 'text-emerald-500' : 'text-zinc-500'}`}><Library size={24} /></button>
-        <button onClick={() => setView(ViewType.AI_CHAT)} className={`p-3 rounded-xl ${currentView === ViewType.AI_CHAT ? 'text-emerald-500' : 'text-zinc-500'}`}><MessageSquareText size={24} /></button>
+      <div className="md:hidden fixed bottom-24 left-4 right-4 bg-zinc-900/90 backdrop-blur-lg rounded-2xl p-2 flex justify-around border border-zinc-800 z-50 shadow-2xl">
+        <button onClick={() => setView(ViewType.HOME)} className={`p-3 rounded-xl ${currentView === ViewType.HOME ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}><Home size={24} /></button>
+        <button onClick={() => setView(ViewType.SEARCH)} className={`p-3 rounded-xl ${currentView === ViewType.SEARCH ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}><Search size={24} /></button>
+        <button onClick={() => setView(ViewType.LIBRARY)} className={`p-3 rounded-xl ${currentView === ViewType.LIBRARY ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}><LibraryIcon size={24} /></button>
+        <button onClick={() => setView(ViewType.AI_CHAT)} className={`p-3 rounded-xl ${currentView === ViewType.AI_CHAT ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}><MessageSquareText size={24} /></button>
       </div>
     </div>
   );
